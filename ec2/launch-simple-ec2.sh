@@ -11,7 +11,7 @@ AMI_ID="ami-0c02fb55956c7d316"    # Amazon Linux 2 (us-east-1)
 INSTANCE_TYPE="t2.micro"
 KEY_NAME="default-key"
 SECURITY_GROUP_NAME="default-sg-launch"
-TAG_NAME="SimpleEC2Instance"
+TAG_NAME="EC2-1"
 
 # Create key pair if it doesn't exist
 if ! aws ec2 describe-key-pairs --key-names "$KEY_NAME" >/dev/null 2>&1; then
