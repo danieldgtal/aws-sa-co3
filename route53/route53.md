@@ -127,5 +127,83 @@ Alias records can point to:
 - Global Accelerator
 - VPC endpoint services
 
+
+# 📘 AWS Route 53 Routing Policies - Cheat Sheet
+
+Amazon Route 53 provides several DNS routing policies to determine how DNS queries are answered. Understanding these is essential for the AWS Solutions Architect – Associate (SAA-C03) exam.
+
 ---
 
+## 🌍 Overview of Routing Policies
+
+| Policy Name             | Description                                              | Health Check Support | Typical Use Case                          |
+|------------------------|----------------------------------------------------------|----------------------|--------------------------------------------|
+| Simple                 | Single static response (one resource)                   | ❌                   | Basic website or API                        |
+| Weighted               | Split traffic by percentage (A/B testing)              | ✅                   | Gradual rollout or canary deployments       |
+| Latency-Based          | Routes to region with lowest latency                    | ✅                   | Performance optimization across regions     |
+| Geolocation            | Routes based on user's country/continent                | ✅                   | Localized content, regional restrictions    |
+| Geoproximity (Traffic Flow) | Routes by user location + bias control             | ✅                   | Advanced geo control (GUI-based setup only) |
+| Failover               | Primary-secondary setup with failover support           | ✅                   | Disaster recovery, HA                       |
+| Multi-Value Answer     | Returns multiple healthy endpoints                      | ✅                   | Client-side load balancing                  |
+
+---
+
+## ✅ 1. Simple Routing
+
+- Default policy.
+- Routes DNS queries to a **single resource** (like an ALB or EC2 instance).
+- No failover or health check.
+
+```txt
+api.example.com → 54.123.4.56
+```
+
+## 🔁 2. Weighted Routing
+
+- Split traffic across multiple resources by assigning weights (0 - 255)
+- Useful for A/B testing or blue/green deployments.
+
+api.example.com
+├── 70% → ALB in us-east-1
+└── 30% → ALB in us-west-2
+
+## 🌎 3. Latency-Based Routing
+
+- Sends traffic to the region with the lowest latency to the user.
+- AWS determines latency based on user's location and AWS region performance
+
+US users → us-east-1  
+Germany users → eu-central-1
+
+## 📍 4. Geolocation Routing
+- Routes traffic based on geographic location of the requester
+- Not latency-based - deterministic based on user's IP.
+
+Users in Canada → `ca.example.com`  
+Users in UK → `uk.example.com`
+
+## 🌐 5. Geoproximity Routing (Traffic Flow only)
+
+- Routes based on user's proximity to AWS resources with optional bias
+- Requires route53 traffic flow GUI tool
+
+User near Paris → Paris region (with +10% bias)
+
+## 📉 6. Failover Routing
+
+- Creates primary and secondary endpoints
+- Automatically failover to the seconday if the primary healthcheck fails
+
+Primary → ALB in us-east-1  
+Secondary → ALB in us-west-2 (failover only)
+
+## 🔄 7. Multi-Value Answer Routing
+
+- Like simple routing, but can return multiple IP addresses
+- Client-side load balancing - DNS resolver picks one
+- Max of 8 healthy records can be returned
+
+Returns:
+- 192.0.2.1
+- 192.0.2.2
+- 192.0.2.3
