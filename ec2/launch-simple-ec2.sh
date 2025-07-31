@@ -29,10 +29,16 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --count 1 \
   --instance-type "$INSTANCE_TYPE" \
   --key-name "$KEY_NAME" \
+  --subnet-id "$SUBNET_ID" \                 
   --security-group-ids "$SG_ID" \
   --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$TAG_NAME}]" \
   --query "Instances[0].InstanceId" \
   --output text 2>/dev/null)
+
+if [[ -z "$SUBNET_ID" || "$SUBNET_ID" == "None" ]]; then
+  echo "❌ Subnet ID is empty. Please set a valid subnet ID for VPC: $VPC_ID"
+  exit 1
+fi
 
 if [[ -z "$INSTANCE_ID" || "$INSTANCE_ID" == "None" ]]; then
   echo "❌ Failed to launch EC2 instance. Check security group and key name. Exiting."
