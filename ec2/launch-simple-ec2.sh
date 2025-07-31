@@ -9,6 +9,8 @@ KEY_NAME="default-key"
 SECURITY_GROUP_NAME="default-sg-launch"
 TAG_NAME="EC2-1"
 VPC_ID="vpc-02c946c5dba80afbb"
+SUBNET_ID="subnet-0e3975d7ac071471c"
+
 
 # Create key pair if it doesn't exist
 if ! aws ec2 describe-key-pairs --key-names "$KEY_NAME" >/dev/null 2>&1; then
