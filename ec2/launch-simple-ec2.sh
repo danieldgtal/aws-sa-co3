@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # 📜 aws-saa-co3/ec2/launch-simple-ec2.sh
-# Launch an EC2 instance with safe handling for existing resources.
 
 # Set defaults
 AMI_ID="ami-0c02fb55956c7d316"    # Amazon Linux 2 (us-east-1)
@@ -20,27 +19,41 @@ else
   echo "🔑 Key pair $KEY_NAME already exists."
 fi
 
-# Find or create security group
-echo "🔐 Checking security group $SECURITY_GROUP_NAME..."
-
+# Check for existing security group by name and VPC
+echo "🔐 Checking for existing security group..."
 SG_ID=$(aws ec2 describe-security-groups \
   --filters Name=group-name,Values="$SECURITY_GROUP_NAME" Name=vpc-id,Values="$VPC_ID" \
-  --query "SecurityGroups[0].GroupId" --output text 2>/dev/null)
+  --query "SecurityGroups[0].GroupId" \
+  --output text 2>/dev/null)
 
-if [ "$SG_ID" == "None" ] || [ -z "$SG_ID" ]; then
-  echo "🔐 Creating security group $SECURITY_GROUP_NAME..."
+# If not found, create it
+if [[ "$SG_ID" == "None" || -z "$SG_ID" ]]; then
+  echo "🔐 Creating new security group $SECURITY_GROUP_NAME..."
   SG_ID=$(aws ec2 create-security-group \
     --group-name "$SECURITY_GROUP_NAME" \
     --description "Default SG for EC2 launch script" \
     --vpc-id "$VPC_ID" \
     --query "GroupId" --output text)
 
-  # Add SSH rule
+  if [[ -z "$SG_ID" || "$SG_ID" == "None" ]]; then
+    echo "❌ Failed to create security group. Exiting."
+    exit 1
+  fi
+
+  # Add SSH access
   aws ec2 authorize-security-group-ingress \
     --group-id "$SG_ID" \
-    --protocol tcp --port 22 --cidr 0.0.0.0/0
+    --protocol tcp \
+    --port 22 \
+    --cidr 0.0.0.0/0
 else
   echo "🔐 Using existing security group with ID: $SG_ID"
+fi
+
+# Double check SG_ID is not empty
+if [[ -z "$SG_ID" ]]; then
+  echo "❌ Security Group ID is empty. Exiting."
+  exit 1
 fi
 
 # Launch EC2 instance
@@ -55,17 +68,18 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --query "Instances[0].InstanceId" \
   --output text 2>/dev/null)
 
-if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "None" ]; then
-  echo "❌ Failed to launch EC2 instance. Please check previous errors."
+if [[ -z "$INSTANCE_ID" || "$INSTANCE_ID" == "None" ]]; then
+  echo "❌ Failed to launch EC2 instance. Check security group and key name. Exiting."
   exit 1
 fi
 
 echo "✅ Instance launched with ID: $INSTANCE_ID"
 
-# Wait until it's running and fetch IP
-echo "⏳ Waiting for instance to enter 'running' state..."
+# Wait for instance to be running
+echo "⏳ Waiting for EC2 instance to enter 'running' state..."
 aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
 
+# Get public IP
 PUBLIC_IP=$(aws ec2 describe-instances \
   --instance-ids "$INSTANCE_ID" \
   --query "Reservations[0].Instances[0].PublicIpAddress" \
