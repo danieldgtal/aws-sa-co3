@@ -21,7 +21,7 @@ if ! aws ec2 describe-key-pairs --key-names "$KEY_NAME" >/dev/null 2>&1; then
 fi
 
 # Create security group if it doesn't exist
-VPC_ID=$(aws ec2 describe-vpcs --query "Vpcs[0].VpcId" --output text)
+VPC_ID=vpc-02c946c5dba80afbb
 
 if ! aws ec2 describe-security-groups --group-names "$SECURITY_GROUP_NAME" >/dev/null 2>&1; then
   echo "Creating security group $SECURITY_GROUP_NAME..."
