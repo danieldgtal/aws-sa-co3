@@ -23,6 +23,22 @@ if [[ -z "$SG_ID" ]]; then
   exit 1
 fi
 
+# Ensure SSH access is allowed in the security group
+echo "🔒 Checking SSH access in security group..."
+SSH_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids "$SG_ID" --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\`]" --output text)
+
+if [[ -z "$SSH_RULE_EXISTS" ]]; then
+  echo "🔓 Adding SSH rule to security group $SG_ID..."
+  aws ec2 authorize-security-group-ingress \
+    --group-id "$SG_ID" \
+    --protocol tcp \
+    --port 22 \
+    --cidr 0.0.0.0/0
+  echo "✅ SSH rule added to security group."
+else
+  echo "✅ SSH rule already exists in security group."
+fi
+
 # Define key file path
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KEY_FILE="$SCRIPT_DIR/$KEY_NAME.pem"
@@ -63,7 +79,8 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --subnet-id "$SUBNET_ID" \
   --security-group-ids "$SG_ID" \
   --associate-public-ip-address \
-  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$TAG_NAME}]" \
+  --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":8,"VolumeType":"gp3","DeleteOnTermination":true}}]' \
+  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$TAG_NAME}]" "ResourceType=volume,Tags=[{Key=Name,Value=$TAG_NAME-root}]" \
   --query "Instances[0].InstanceId" \
   --output text 2>/dev/null)
 
