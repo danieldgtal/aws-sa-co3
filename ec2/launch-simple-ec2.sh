@@ -2,8 +2,25 @@
 
 # 📜 aws-saa-co3/ec2/launch-simple-ec2.sh
 
+# Get the latest Amazon Linux 2023 AMI dynamically
+echo "🔍 Finding latest Amazon Linux 2023 AMI..."
+AMI_ID=$(aws ec2 describe-images \
+  --owners amazon \
+  --filters "Name=name,Values=al2023-ami-*" \
+          "Name=architecture,Values=x86_64" \
+          "Name=virtualization-type,Values=hvm" \
+          "Name=state,Values=available" \
+  --query "Images | sort_by(@, &CreationDate) | [-1].ImageId" \
+  --output text)
+
+if [[ -z "$AMI_ID" || "$AMI_ID" == "None" ]]; then
+  echo "❌ Could not find latest Amazon Linux 2023 AMI. Using fallback..."
+  AMI_ID="ami-0c02fb55956c7d316"  # Fallback to your original
+fi
+
+echo "📀 Using AMI: $AMI_ID"
+
 # Set defaults
-AMI_ID="ami-0c02fb55956c7d316"    # Amazon Linux 2 (us-east-1)
 INSTANCE_TYPE="t2.micro"
 KEY_NAME="default-key"
 SECURITY_GROUP_NAME="default-sg-launch"
@@ -39,9 +56,8 @@ else
   echo "✅ SSH rule already exists in security group."
 fi
 
-# Define key file path
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-KEY_FILE="$SCRIPT_DIR/$KEY_NAME.pem"
+# Save key to Downloads folder
+KEY_FILE="$HOME/Downloads/$KEY_NAME.pem"
 
 # Create key pair if it doesn't exist
 if ! aws ec2 describe-key-pairs --key-names "$KEY_NAME" >/dev/null 2>&1; then
@@ -59,7 +75,7 @@ else
     echo "   Options:"
     echo "   1. Delete the AWS key pair and run script again: aws ec2 delete-key-pair --key-name $KEY_NAME"
     echo "   2. Use a different KEY_NAME in the script"
-    echo "   3. Place your existing $KEY_NAME.pem file in: $SCRIPT_DIR/"
+    echo "   3. Place your existing $KEY_NAME.pem file in: $HOME/Downloads/"
     read -p "   Continue anyway? (y/N): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -81,6 +97,11 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --associate-public-ip-address \
   --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":8,"VolumeType":"gp3","DeleteOnTermination":true}}]' \
   --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$TAG_NAME}]" "ResourceType=volume,Tags=[{Key=Name,Value=$TAG_NAME-root}]" \
+  --user-data '#!/bin/bash
+yum update -y
+systemctl enable sshd
+systemctl start sshd
+' \
   --query "Instances[0].InstanceId" \
   --output text 2>/dev/null)
 
@@ -95,10 +116,27 @@ echo "✅ Instance launched with ID: $INSTANCE_ID"
 echo "⏳ Waiting for EC2 instance to enter 'running' state..."
 aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
 
+# Wait for system status checks to pass (IMPORTANT!)
+echo "⏳ Waiting for system status checks to pass..."
+aws ec2 wait system-status-ok --instance-ids "$INSTANCE_ID"
+
+echo "⏳ Waiting for instance status checks to pass..."
+aws ec2 wait instance-status-ok --instance-ids "$INSTANCE_ID"
+
 # Get public IP
 PUBLIC_IP=$(aws ec2 describe-instances \
   --instance-ids "$INSTANCE_ID" \
   --query "Reservations[0].Instances[0].PublicIpAddress" \
   --output text)
 
-echo "✅ EC2 Instance is running. Public IP: $PUBLIC_IP"
+echo "✅ EC2 Instance is fully ready!"
+echo "📍 Instance ID: $INSTANCE_ID"
+echo "🌐 Public IP: $PUBLIC_IP"
+echo "🔑 Key file: $KEY_FILE"
+echo ""
+echo "🔌 Connect using:"
+echo "ssh -i \"$KEY_FILE\" ec2-user@$PUBLIC_IP"
+echo ""
+echo "⏰ Waiting additional 30 seconds for SSH daemon to be fully ready..."
+sleep 30
+echo "✅ Ready to connect!"
