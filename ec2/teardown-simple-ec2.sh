@@ -4,7 +4,7 @@
 
 # Defaults (ensure these match the launch script)
 KEY_NAME="default-key"
-SECURITY_GROUP_NAME="default-sg-launch"
+SECURITY_GROUP_NAME="default"
 TAG_NAME="EC2-1"  # Fixed to match launch script
 
 echo "🔍 Finding EC2 instance with tag Name=$TAG_NAME..."

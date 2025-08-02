@@ -56,7 +56,13 @@ fi
 # 4. Check Network ACL
 echo ""
 echo "4️⃣ Checking Network ACL..."
-NACL_ID=$(aws ec2 describe-subnets --subnet-ids "$SUBNET_ID" --query "Subnets[0].NetworkAclId" --output text)
+NACL_ID=$(aws ec2 describe-subnets --subnet-ids "$SUBNET_ID" --query "Subnets[0].NetworkAclId" --output text 2>/dev/null)
+
+if [[ "$NACL_ID" == "None" || -z "$NACL_ID" ]]; then
+    echo "   Could not retrieve NACL ID, checking default NACL..."
+    NACL_ID=$(aws ec2 describe-network-acls --filters "Name=vpc-id,Values=$VPC_ID" "Name=default,Values=true" --query "NetworkAcls[0].NetworkAclId" --output text)
+fi
+
 echo "   Network ACL ID: $NACL_ID"
 
 # Check inbound rules for SSH (port 22)
