@@ -18,8 +18,27 @@ sudo chmod 666 /var/run/docker.sock
 echo "📦 Installing prerequisites for kubectl..."
 sudo apt-get install -y apt-transport-https ca-certificates curl
 
+echo "🔍 Detecting system architecture..."
+ARCH=$(uname -m)
+case $ARCH in
+    x86_64)
+        ARCH="amd64"
+        ;;
+    aarch64)
+        ARCH="arm64"
+        ;;
+    arm64)
+        ARCH="arm64"
+        ;;
+    *)
+        echo "❌ Unsupported architecture: $ARCH"
+        exit 1
+        ;;
+esac
+echo "📋 Detected architecture: $ARCH"
+
 echo "📥 Downloading kubectl..."
-curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl"
 chmod +x kubectl
 sudo mv kubectl /usr/local/bin/
 
@@ -34,7 +53,7 @@ echo 'complete -o default -F __start_kubectl k' >> ~/.bashrc
 
 echo "📥 Downloading kind (latest version)..."
 KIND_VERSION=$(curl -s https://api.github.com/repos/kubernetes-sigs/kind/releases/latest | grep -Po '"tag_name": "\K[^"]*')
-curl -Lo ./kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+curl -Lo ./kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-${ARCH}"
 chmod +x ./kind
 sudo mv ./kind /usr/local/bin/kind
 
